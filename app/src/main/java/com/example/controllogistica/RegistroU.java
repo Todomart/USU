@@ -12,17 +12,15 @@ public class RegistroU extends CatalagoBase {
     private String numCamioneta;  // Columna B
     private String numVueltas;    // Columna C
     private String ruta;          // Columna D
-    private String estatus;       // Columna E (Vueltas)
-    private String fecha;         // Columna F
-    private String hora;          // Columna G
+    private String fecha;         // Columna E
+    private String hora;          // Columna F
 
     // Constructor para crear un registro nuevo rápidamente
-    public RegistroU(String chofer, String numCamioneta, String numVueltas, String ruta, String estatus, String fecha, String hora) {
+    public RegistroU(String chofer, String numCamioneta, String ruta, String numVueltas, String fecha, String hora) {
         this.chofer = chofer;
         this.numCamioneta = numCamioneta;
-        this.numVueltas = numVueltas;
         this.ruta = ruta;
-        this.estatus = estatus;
+        this.numVueltas = numVueltas;
         this.fecha = fecha;
         this.hora = hora;
     }
@@ -32,7 +30,6 @@ public class RegistroU extends CatalagoBase {
     public String getNumCamioneta() { return numCamioneta; }
     public String getNumVueltas() { return numVueltas; }
     public String getRuta() { return ruta; }
-    public String getEstatus() { return estatus; }
     public String getFecha() { return fecha; }
     public String getHora() { return hora; }
 }

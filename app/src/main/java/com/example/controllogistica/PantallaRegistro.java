@@ -9,14 +9,14 @@ import androidx.appcompat.app.AppCompatActivity;
 public class PantallaRegistro extends AppCompatActivity {
     private EditText etNombre, etUnidad, etUsuario, etContra;
     private Button btnRegistrar;
-    private GestorSesion gestor;
+    private GestorSesionPU gestor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_registro);
 
-        gestor = new GestorSesion(this);
+        gestor = new GestorSesionPU(this);
 
         etNombre = findViewById(R.id.etNombreRegistro);
         etUnidad = findViewById(R.id.etUnidadRegistro);

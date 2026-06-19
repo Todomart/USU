@@ -14,7 +14,7 @@ public class SistemaQr {
     private static HashSet<String> codigosQuemados = new HashSet<>();
 
     /**
-     * José Antonio, este es el método que genera el QR con 3 parámetros.
+     *  este es el método que genera el QR con 3 parámetros.
      * Si en el MainActivity sale rojo, es porque aquí faltaba alguno.
      */
     public Bitmap generarTicketTemporal(String nombre, String unidad, String ruta) {

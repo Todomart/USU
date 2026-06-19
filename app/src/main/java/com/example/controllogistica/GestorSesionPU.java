@@ -3,16 +3,35 @@ package com.example.controllogistica;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-public class GestorSesion {
+public class GestorSesionPU {
     private SharedPreferences prefs;
     private SharedPreferences.Editor editor;
 
-    public GestorSesion(Context context) {
+    public GestorSesionPU(Context context) {
         prefs = context.getSharedPreferences("LogisticaPrefs", Context.MODE_PRIVATE);
         editor = prefs.edit();
         // Datos del Administrador Maestro
         editor.putString("ADMIN_admin", "1234");
         editor.putString("RUTA_admin", "RUTA GENERAL");
+        editor.apply();
+    }
+
+    // --- NUEVO: MÉTODO QUE REQUERÍA LOGINACTIVITY ---
+    public void guardarSesion(String usuario, String pass, String rol) {
+        editor.putString("USER_ACTUAL", usuario); // Para mantener sesión
+        editor.putString(usuario, pass);          // Para validarLogin()
+        editor.putString("ROL_KEY", rol);         // Para distinguir Admin vs Chofer
+        editor.apply();
+    }
+
+    // --- MÉTODOS EXISTENTES ---
+    public String getRol() {
+        return prefs.getString("ROL_KEY", "CHOFER");
+    }
+
+    public void guardarAdminLocal(String usuario, String pass, String ruta) {
+        editor.putString("ADMIN_" + usuario, pass);
+        editor.putString("RUTA_" + usuario, ruta);
         editor.apply();
     }
 
@@ -42,7 +61,9 @@ public class GestorSesion {
         return prefs.getString("RUTA_" + u, "Sin Ruta");
     }
 
-    public boolean estaLogueado() { return prefs.contains("USER_ACTUAL"); }
+    public boolean estaLogueado() {
+        return prefs.contains("USER_ACTUAL");
+    }
 
     public void cerrarSesion() {
         editor.remove("USER_ACTUAL");
@@ -57,7 +78,6 @@ public class GestorSesion {
         return prefs.getString("UNIDAD_" + prefs.getString("USER_ACTUAL", ""), "S/N");
     }
 
-    // Métodos de compatibilidad para otras pantallas
     public String getPregunta() { return "¿Nombre de tu mascota?"; }
     public String getRespuesta() { return "admin"; }
     public String getPassword() {

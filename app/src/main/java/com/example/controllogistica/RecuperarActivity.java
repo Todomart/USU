@@ -12,14 +12,14 @@ public class RecuperarActivity extends AppCompatActivity {
     private TextView tvPregunta;
     private EditText etRespuesta;
     private Button btnRecuperar;
-    private GestorSesion gestor;
+    private GestorSesionPU gestor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_recuperar);
 
-        gestor = new GestorSesion(this);
+        gestor = new GestorSesionPU(this);
 
         tvPregunta = findViewById(R.id.tvPreguntaSeguridad);
         etRespuesta = findViewById(R.id.etRespuestaSeguridad);

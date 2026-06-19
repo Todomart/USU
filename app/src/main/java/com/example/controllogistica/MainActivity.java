@@ -10,12 +10,9 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.zxing.BarcodeFormat;
 import com.journeyapps.barcodescanner.BarcodeEncoder;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
-    private GestorSesion gestor;
+    private GestorSesionPU gestor;
     private ImageView imgQR;
     private TextView tvTimer, tvSaludo;
     private Button btnGenerar, btnCerrar;
@@ -26,7 +23,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        gestor = new GestorSesion(this);
+        gestor = new GestorSesionPU(this);
         imgQR = findViewById(R.id.imgQRCode);
         tvTimer = findViewById(R.id.tvTimer);
         tvSaludo = findViewById(R.id.tvSaludoChofer);
@@ -44,17 +41,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void generarQR() {
-        String fecha = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
-        String hora = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
+        // 1. Jalamos los datos de identidad guardados en el teléfono del chofer
+        String nombreChofer = gestor.getNombre().trim();
+        String unidadCamion = gestor.getUnidad().trim();
 
-        // Estructura para tu tabla: Chofer|Unidad|Ruta|Vueltas|Fecha|Hora
-        String data = gestor.getNombre() + "|" + gestor.getUnidad() + "|Ruta 1|1|" + fecha + "|" + hora;
+        // 2. Estructura Pura de la Opción A: Nombre | Unidad
+        // Quitamos la fecha, la hora rota y la ruta fija para que el QR sea ultra rápido de leer
+        String data = nombreChofer + "|" + unidadCamion;
 
         try {
             BarcodeEncoder encoder = new BarcodeEncoder();
             imgQR.setImageBitmap(encoder.encodeBitmap(data, BarcodeFormat.QR_CODE, 500, 500));
+
+           // Contador de tiempo para que el QR expire
             iniciarContador();
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void iniciarContador() {
