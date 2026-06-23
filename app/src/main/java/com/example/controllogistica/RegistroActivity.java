@@ -17,7 +17,7 @@ public class RegistroActivity extends AppCompatActivity {
     private Button btnRegistrar;
     private GestorSesionPU gestor;
 
-    private final String URL_WEB_APP = "https://script.google.com/macros/s/AKfycbxXlfjoMTqxjHktJo0sDXd0k-3M0BdLYLTDybOeSaPoVkm2fc4wOS_eUR3J5ifle5PJPg/exec";
+    private final String URL_WEB_APP = "https://script.google.com/macros/s/AKfycbyQBI0CClqrSbQOV2fMB_Cm2hrSzdKlg0lFRqBsWAzBknCBs2KKIkTPGz0N9DRWdGWkKg/exec";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
