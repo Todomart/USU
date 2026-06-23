@@ -9,7 +9,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Vibrator;
+import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -22,6 +24,7 @@ import com.journeyapps.barcodescanner.BarcodeCallback;
 import com.journeyapps.barcodescanner.BarcodeResult;
 import com.journeyapps.barcodescanner.DecoratedBarcodeView;
 
+import java.net.URLEncoder;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -31,37 +34,28 @@ public class AdminActivity extends AppCompatActivity {
     private boolean peticionEnCurso = false;
     private final String URL_WEB_APP = "https://script.google.com/macros/s/AKfycbxXlfjoMTqxjHktJo0sDXd0k-3M0BdLYLTDybOeSaPoVkm2fc4wOS_eUR3J5ifle5PJPg/exec";
 
-    // 🔑 Variable para amarrar la caseta que inició sesión
-    private String casetaAsignada = "Sin Ruta";
+    private View overlayNegro;
+    private Button btnSalir, btnOscurecer;
 
-    // Memoria del teléfono para guardar los QR de la sesión y evitar duplicados
+    private String casetaAsignada = "Sin Ruta";
     private static final Set<String> codigosRegistrados = new HashSet<>();
 
     private final BarcodeCallback callback = new BarcodeCallback() {
         @Override
         public void barcodeResult(BarcodeResult result) {
             String contenido = result.getText();
-
-            if (contenido == null || peticionEnCurso) {
-                return;
-            }
+            if (contenido == null || peticionEnCurso) return;
 
             String codigoLimpio = contenido.trim();
-
-            // 🛑 Si ya está en la memoria del teléfono, alerta inmediata
             if (codigosRegistrados.contains(codigoLimpio)) {
-                Toast.makeText(getApplicationContext(), "🛑 QR Duplicado: Ya fue escaneado", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), "🛑 QR Duplicado", Toast.LENGTH_SHORT).show();
                 emitirSonido(ToneGenerator.TONE_SUP_CONGESTION, 250);
                 return;
             }
 
-            // 💾 Guardar en memoria local, avisar lectura y procesar
             codigosRegistrados.add(codigoLimpio);
-            Toast.makeText(getApplicationContext(), "📸 Código leído, procesando...", Toast.LENGTH_SHORT).show();
-
             peticionEnCurso = true;
-            barcodeView.pause(); // Pausa momentánea para evitar ráfagas de red
-
+            barcodeView.pause();
             enviarANube(codigoLimpio);
         }
     };
@@ -71,22 +65,31 @@ public class AdminActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin);
 
-        // Mantener la pantalla encendida mientras se usa el escáner
+        overlayNegro = findViewById(R.id.overlayNegro);
+        btnSalir = findViewById(R.id.btnSalir);
+        btnOscurecer = findViewById(R.id.btnOscurecer);
+
+        btnSalir.setOnClickListener(v -> {
+            new GestorSesionPU(this).cerrarSesion();
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+        });
+
+        btnOscurecer.setOnClickListener(v -> overlayNegro.setVisibility(View.VISIBLE));
+        overlayNegro.setOnClickListener(v -> overlayNegro.setVisibility(View.GONE));
+
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        // 📥 Capturamos la caseta que nos heredó LoginActivity tras iniciar sesión correctamente
         if (getIntent().hasExtra("RUTA_ASIGNADA")) {
             casetaAsignada = getIntent().getStringExtra("RUTA_ASIGNADA");
         }
 
-        // Validación y solicitud de permisos de la cámara
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 100);
             }
         }
 
-        // Inicialización directa del componente de la cámara de ZXing
         barcodeView = findViewById(R.id.zxing_barcode_scanner);
         barcodeView.setStatusText("");
         barcodeView.decodeContinuous(callback);
@@ -95,97 +98,44 @@ public class AdminActivity extends AppCompatActivity {
     private void enviarANube(final String data) {
         try {
             String[] p = data.split("\\|");
-            if (p.length < 2) { // El QR trae Nombre|Unidad
-                reestablecerEscaner("⚠️ QR no válido", ToneGenerator.TONE_SUP_ERROR, null);
+            if (p.length < 8) {
+                reestablecerEscaner("⚠️ QR incompleto", ToneGenerator.TONE_SUP_ERROR, null);
                 return;
             }
 
-            String chofer       = p[0];
-            String numCamioneta = p[1];
-
-            // 🏢 Usamos la caseta autenticada en el Login
-            String ruta         = casetaAsignada;
-
-            // El Servidor en Sheets calculará de forma automática las vueltas, fecha y hora reales
-            String vueltas      = "registrado";
-            String fecha        = "registrado";
-            String hora         = "registrado";
-
-            // 🚨 CORRECCIÓN: Ajustamos "accion=escanerViaje" para que el script procese el viaje libremente
-            String url = URL_WEB_APP + "?accion=escanerViaje"
-                    + "&chofer=" + chofer.replace(" ", "%20")
-                    + "&numCamioneta=" + numCamioneta
-                    + "&ruta=" + ruta.replace(" ", "%20")
-                    + "&vueltas=" + vueltas
-                    + "&fecha=" + fecha
-                    + "&hora=" + hora;
+            String encodedData = URLEncoder.encode(data, "UTF-8");
+            String url = URL_WEB_APP + "?accion=registrar&datos=" + encodedData;
 
             RequestQueue queue = Volley.newRequestQueue(this);
             StringRequest request = new StringRequest(Request.Method.GET, url,
                     response -> {
-                        // Sonido fuerte de éxito al registrar en Excel
                         emitirSonidoFuerte(ToneGenerator.TONE_DTMF_S, 300);
                         vibrar(new long[]{0, 150});
-                        Toast.makeText(getApplicationContext(), "✅ Registrado en Excel", Toast.LENGTH_SHORT).show();
-
-                        // Esperamos 1.5 segundos para dar tiempo al cambio de chofer y reactivamos la cámara
+                        Toast.makeText(getApplicationContext(), "✅ Registrado en Escaner", Toast.LENGTH_SHORT).show();
                         new Handler().postDelayed(() -> reestablecerEscaner(null, -1, null), 1500);
                     },
-                    error -> {
-                        reestablecerEscaner("❌ Error de red", ToneGenerator.TONE_CDMA_HIGH_L, new long[]{0, 500});
-                    }
+                    error -> reestablecerEscaner("❌ Error de red", ToneGenerator.TONE_CDMA_HIGH_L, new long[]{0, 500})
             );
             queue.add(request);
-
         } catch (Exception e) {
             reestablecerEscaner("Error: " + e.getMessage(), ToneGenerator.TONE_SUP_ERROR, null);
         }
     }
 
-    private void reestablecerEscaner(String mensajeToast, int tipoTono, long[] patronVibracion) {
-        if (mensajeToast != null) {
-            Toast.makeText(getApplicationContext(), mensajeToast, Toast.LENGTH_SHORT).show();
-        }
-        if (tipoTono != -1) {
-            emitirSonido(tipoTono, 250);
-        }
-        if (patronVibracion != null) {
-            vibrar(patronVibracion);
-        }
+    private void reestablecerEscaner(String m, int t, long[] p) {
+        if (m != null) Toast.makeText(getApplicationContext(), m, Toast.LENGTH_SHORT).show();
+        if (t != -1) emitirSonido(t, 250);
+        if (p != null) vibrar(p);
         peticionEnCurso = false;
-        barcodeView.resume(); // Reanuda la cámara para el siguiente QR libre
-    }
-
-    private void emitirSonido(int tipoTono, int duracion) {
-        try {
-            ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70);
-            tg.startTone(tipoTono, duracion);
-        } catch (Exception e) { e.printStackTrace(); }
-    }
-
-    private void emitirSonidoFuerte(int tipoTono, int duracion) {
-        try {
-            ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
-            tg.startTone(tipoTono, duracion);
-        } catch (Exception e) { e.printStackTrace(); }
-    }
-
-    private void vibrar(long[] patron) {
-        try {
-            Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-            if (v != null) v.vibrate(patron, -1);
-        } catch (Exception e) { e.printStackTrace(); }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
         barcodeView.resume();
     }
 
+    private void emitirSonido(int t, int d) { try { ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70); tg.startTone(t, d); } catch (Exception e) { e.printStackTrace(); } }
+    private void emitirSonidoFuerte(int t, int d) { try { ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_ALARM, 100); tg.startTone(t, d); } catch (Exception e) { e.printStackTrace(); } }
+    private void vibrar(long[] p) { try { Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE); if (v != null) v.vibrate(p, -1); } catch (Exception e) { e.printStackTrace(); } }
+
     @Override
-    protected void onPause() {
-        super.onPause();
-        barcodeView.pause();
-    }
+    protected void onResume() { super.onResume(); barcodeView.resume(); }
+    @Override
+    protected void onPause() { super.onPause(); barcodeView.pause(); }
 }

@@ -68,6 +68,7 @@ public class RegistroActivity extends AppCompatActivity {
         // URL final que va hacia Google Sheets
         String urlFinal = URL_WEB_APP + "?accion=registrarUsuario"
                 + "&chofer=" + nombre
+                + "&usuario=" + usuario
                 + "&numCamioneta=" + unidad
                 + "&contrasena=" + pass;
 

@@ -26,7 +26,7 @@ public class GestorSesionPU {
 
     // --- MÉTODOS EXISTENTES ---
     public String getRol() {
-        return prefs.getString("ROL_KEY", "CHOFER");
+        return prefs.getString("ROL_KEY", "NINGUNO");
     }
 
     public void guardarAdminLocal(String usuario, String pass, String ruta) {

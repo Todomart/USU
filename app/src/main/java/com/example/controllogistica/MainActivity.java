@@ -1,9 +1,9 @@
 package com.example.controllogistica;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.os.CountDownTimer;
-import android.view.View;
+import android.os.Handler;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -14,9 +14,12 @@ import com.journeyapps.barcodescanner.BarcodeEncoder;
 public class MainActivity extends AppCompatActivity {
     private GestorSesionPU gestor;
     private ImageView imgQR;
-    private TextView tvTimer, tvSaludo;
-    private Button btnGenerar, btnCerrar;
-    private CountDownTimer timer;
+    private Button btnGenerar;
+    private TextView tvTimer;
+
+    private final Handler handler = new Handler();
+    private int segundosRestantes = 0;
+    private Runnable runnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -25,52 +28,77 @@ public class MainActivity extends AppCompatActivity {
 
         gestor = new GestorSesionPU(this);
         imgQR = findViewById(R.id.imgQRCode);
-        tvTimer = findViewById(R.id.tvTimer);
-        tvSaludo = findViewById(R.id.tvSaludoChofer);
         btnGenerar = findViewById(R.id.btnGenerarQR);
-        btnCerrar = findViewById(R.id.btnCerrarSesion);
+        tvTimer = findViewById(R.id.tvTimer);
+        Button btnCerrar = findViewById(R.id.btnCerrarSesion);
 
-        tvSaludo.setText("Bienvenido: " + gestor.getNombre());
+        // Agregado: Validación de seguridad para asegurar que el admin no se quede aquí
+        if ("ADMIN".equals(gestor.getRol())) {
+            Intent intent = new Intent(this, AdminActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+            return;
+        }
 
-        btnGenerar.setOnClickListener(v -> generarQR());
+        btnGenerar.setOnClickListener(v -> {
+            generarQr();
+            iniciarTemporizador();
+        });
+
         btnCerrar.setOnClickListener(v -> {
             gestor.cerrarSesion();
-            startActivity(new Intent(this, LoginActivity.class));
+            Intent intent = new Intent(this, LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
             finish();
         });
     }
 
-    private void generarQR() {
-        // 1. Jalamos los datos de identidad guardados en el teléfono del chofer
-        String nombreChofer = gestor.getNombre().trim();
-        String unidadCamion = gestor.getUnidad().trim();
-
-        // 2. Estructura Pura de la Opción A: Nombre | Unidad
-        // Quitamos la fecha, la hora rota y la ruta fija para que el QR sea ultra rápido de leer
-        String data = nombreChofer + "|" + unidadCamion;
-
+    private void generarQr() {
         try {
-            BarcodeEncoder encoder = new BarcodeEncoder();
-            imgQR.setImageBitmap(encoder.encodeBitmap(data, BarcodeFormat.QR_CODE, 500, 500));
+            String nombre = gestor.getNombre();
+            String unidad = gestor.getUnidad();
+            if (nombre == null || unidad == null) return;
 
-           // Contador de tiempo para que el QR expire
-            iniciarContador();
+            String data = nombre + "|" + unidad + "|" + System.currentTimeMillis();
+            BarcodeEncoder encoder = new BarcodeEncoder();
+            Bitmap bitmap = encoder.encodeBitmap(data, BarcodeFormat.QR_CODE, 500, 500);
+
+            imgQR.setImageDrawable(null);
+            imgQR.setImageBitmap(bitmap);
+
+            btnGenerar.setEnabled(false);
+            segundosRestantes = 120;
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void iniciarContador() {
-        if (timer != null) timer.cancel();
-        btnGenerar.setEnabled(false);
-        tvTimer.setVisibility(View.VISIBLE);
-        timer = new CountDownTimer(120000, 1000) {
-            public void onTick(long ms) { tvTimer.setText("Vence en: " + (ms/1000) + "s"); }
-            public void onFinish() {
-                imgQR.setImageBitmap(null);
-                btnGenerar.setEnabled(true);
-                tvTimer.setText("CÓDIGO EXPIRADO");
+    private void iniciarTemporizador() {
+        if (runnable != null) handler.removeCallbacks(runnable);
+
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                if (segundosRestantes > 0) {
+                    segundosRestantes--;
+                    tvTimer.setVisibility(android.view.View.VISIBLE);
+                    tvTimer.setText("Espera " + segundosRestantes + "s para otro QR");
+                    handler.postDelayed(this, 1000);
+                } else {
+                    tvTimer.setVisibility(android.view.View.INVISIBLE);
+                    btnGenerar.setEnabled(true);
+                    btnGenerar.setText("GENERAR NUEVO QR");
+                }
             }
-        }.start();
+        };
+        handler.post(runnable);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacks(runnable);
     }
 }

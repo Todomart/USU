@@ -27,5 +27,10 @@
         android:layout_width="wrap_content" android:layout_height="wrap_content"
         android:text="Cerrar Sesión" android:layout_marginTop="30dp"
         style="@style/Widget.AppCompat.Button.Borderless" android:textColor="#888" />
+    <Button
+        android:id="@+id/btnSalir"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Salir" />
 
 </LinearLayout>

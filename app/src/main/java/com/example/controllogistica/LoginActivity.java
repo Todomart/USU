@@ -1,15 +1,11 @@
 package com.example.controllogistica;
 
-import android.content.Context;
 import android.content.Intent;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.StringRequest;
@@ -19,16 +15,20 @@ public class LoginActivity extends AppCompatActivity {
     private EditText etUser, etPass;
     private Button btnEntrar, btnIrRegistro;
     private GestorSesionPU gestor;
-
-    private final String URL_WEB_APP = "https://script.google.com/macros/s/AKfycbxXlfjoMTqxjHktJo0sDXd0k-3M0BdLYLTDybOeSaPoVkm2fc4wOS_eUR3J5ifle5PJPg/exec";
+    private final String URL = "https://script.google.com/macros/s/AKfycbyQBI0CClqrSbQOV2fMB_Cm2hrSzdKlg0lFRqBsWAzBknCBs2KKIkTPGz0N9DRWdGWkKg/exec";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         gestor = new GestorSesionPU(this);
 
+        // Lógica de navegación directa si ya hay sesión activa
         if (gestor.estaLogueado()) {
-            irAPantalla(gestor.getRol()); // Asumo que tu gestor tiene un getRol()
+            if ("ADMIN".equals(gestor.getRol())) {
+                irA(AdminActivity.class);
+            } else {
+                irA(MainActivity.class);
+            }
             return;
         }
 
@@ -38,65 +38,36 @@ public class LoginActivity extends AppCompatActivity {
         btnEntrar = findViewById(R.id.btnIngresar);
         btnIrRegistro = findViewById(R.id.btnIrRegistro);
 
-        btnEntrar.setOnClickListener(v -> {
-            String u = etUser.getText().toString().trim();
-            String p = etPass.getText().toString().trim();
-
-            if (u.isEmpty() || p.isEmpty()) {
-                Toast.makeText(this, "Llena todos los campos", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            // 1. VALIDACIÓN LOCAL (Offline)
-            if (gestor.validarLogin(u, p)) {
-                irAPantalla(gestor.getRol());
-            }
-            // 2. VALIDACIÓN ONLINE
-            else if (hayConexion()) {
-                validarAdminEnNube(u, p);
-            }
-            else {
-                Toast.makeText(this, "Sin internet y no hay sesión guardada", Toast.LENGTH_LONG).show();
-            }
-        });
-
-        btnIrRegistro.setOnClickListener(v -> startActivity(new Intent(this, RegistroActivity.class)));
+        btnEntrar.setOnClickListener(v -> validarEnNube(etUser.getText().toString().trim(), etPass.getText().toString().trim()));
+        btnIrRegistro.setOnClickListener(v -> startActivity(new Intent(LoginActivity.this, RegistroActivity.class)));
     }
 
-    private void validarAdminEnNube(final String u, final String p) {
-        String urlLogin = URL_WEB_APP + "?accion=loginAdmin&usuarioAdmin=" + u + "&contrasenaAdmin=" + p;
+    private void validarEnNube(String u, String p) {
+        String urlLogin = URL + "?accion=loginAdmin&usuarioAdmin=" + u + "&contrasenaAdmin=" + p;
         RequestQueue queue = Volley.newRequestQueue(this);
 
-        StringRequest request = new StringRequest(Request.Method.GET, urlLogin,
-                response -> {
-                    String res = response.trim();
-                    if (res.contains("LOGIN_")) {
-                        // Guardamos el rol en el gestor para que la próxima vez sea OFFLINE
-                        String rol = res.contains("ADMIN") ? "ADMIN" : "CHOFER";
-                        gestor.guardarSesion(u, p, rol);
-                        irAPantalla(rol);
-                    } else {
-                        Toast.makeText(this, "Error: " + res, Toast.LENGTH_SHORT).show();
-                    }
-                },
-                error -> Toast.makeText(this, "Error de red", Toast.LENGTH_SHORT).show());
-
-        request.setShouldCache(false);
+        StringRequest request = new StringRequest(Request.Method.GET, urlLogin, response -> {
+            String res = (response != null) ? response.trim() : "";
+            if (res.equals("LOGIN_ADMIN")) {
+                gestor.guardarSesion(u, p, "ADMIN");
+                irA(AdminActivity.class);
+            } else if (res.equals("LOGIN_CHOFER")) {
+                gestor.guardarSesion(u, p, "CHOFER");
+                irA(MainActivity.class);
+            } else {
+                Toast.makeText(this, "Credenciales incorrectas", Toast.LENGTH_SHORT).show();
+            }
+        }, error -> {
+            // Error estricto: Si falla la red, no intenta nada más.
+            Toast.makeText(this, "Sin conexión al servidor. Revisa tu internet.", Toast.LENGTH_LONG).show();
+        });
         queue.add(request);
     }
 
-    private void irAPantalla(String rol) {
-        if ("ADMIN".equals(rol)) {
-            startActivity(new Intent(this, AdminActivity.class));
-        } else {
-            startActivity(new Intent(this, MainActivity.class));
-        }
+    private void irA(Class<?> activityClass) {
+        Intent intent = new Intent(this, activityClass);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
         finish();
-    }
-
-    private boolean hayConexion() {
-        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
-        return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
     }
 }
