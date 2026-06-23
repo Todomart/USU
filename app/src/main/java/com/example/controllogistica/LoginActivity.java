@@ -58,8 +58,14 @@ public class LoginActivity extends AppCompatActivity {
                 Toast.makeText(this, "Credenciales incorrectas", Toast.LENGTH_SHORT).show();
             }
         }, error -> {
-            // Error estricto: Si falla la red, no intenta nada más.
-            Toast.makeText(this, "Sin conexión al servidor. Revisa tu internet.", Toast.LENGTH_LONG).show();
+            // Respaldo solo para CHÓFERES
+            if (gestor.validarLogin(u, p) && "CHOFER".equals(gestor.getRol())) {
+                Toast.makeText(this, "Modo Offline: Sesión de chofer recuperada", Toast.LENGTH_SHORT).show();
+                irA(MainActivity.class);
+            } else {
+                // Si es ADMIN, no entra en modo offline. Si es otro caso, error.
+                Toast.makeText(this, "Sin conexión. El escáner requiere internet.", Toast.LENGTH_LONG).show();
+            }
         });
         queue.add(request);
     }
