@@ -1,6 +1,7 @@
 package com.example.controllogistica;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
@@ -53,10 +54,18 @@ public class LoginActivity extends AppCompatActivity {
                 irA(AdminActivity.class);
             } else if (res.equals("LOGIN_CHOFER")) {
                 gestor.guardarSesion(u, p, "CHOFER");
+                String [] datos = response.split("\\|");
+                if(datos.length >= 3) {
+                    String nombreReal = datos[1];
+                    String unidad = datos[2];
+                    SharedPreferences prefs  = getSharedPreferences("SesionChofer", MODE_PRIVATE);
+                    prefs.edit().putString("nombre", nombreReal).putString("unidad" ,unidad).putBoolean("logueado", true).apply();
+                }
                 irA(MainActivity.class);
             } else {
                 Toast.makeText(this, "Credenciales incorrectas", Toast.LENGTH_SHORT).show();
             }
+
         }, error -> {
             // Respaldo solo para CHÓFERES
             if (gestor.validarLogin(u, p) && "CHOFER".equals(gestor.getRol())) {
@@ -68,6 +77,7 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
         queue.add(request);
+
     }
 
     private void irA(Class<?> activityClass) {

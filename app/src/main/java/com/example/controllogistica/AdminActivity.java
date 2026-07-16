@@ -5,137 +5,156 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Vibrator;
+import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.Toast;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-
+import androidx.core.content.ContextCompat;
 import com.android.volley.Request;
-import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
-import com.journeyapps.barcodescanner.BarcodeCallback;
-import com.journeyapps.barcodescanner.BarcodeResult;
+import com.example.controllogistica.data.Registro;
 import com.journeyapps.barcodescanner.DecoratedBarcodeView;
-
-import java.net.URLEncoder;
-import java.util.HashSet;
-import java.util.Set;
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
+import java.util.List;
 
 public class AdminActivity extends AppCompatActivity {
 
-    private DecoratedBarcodeView barcodeView;
-    private boolean peticionEnCurso = false;
-    private final String URL_WEB_APP = "https://script.google.com/macros/s/AKfycbxXlfjoMTqxjHktJo0sDXd0k-3M0BdLYLTDybOeSaPoVkm2fc4wOS_eUR3J5ifle5PJPg/exec";
-
+    private final String URL_WEB_APP = "https://script.google.com/macros/s/AKfycbyQBI0CClqrSbQOV2fMB_Cm2hrSzdKlg0lFRqBsWAzBknCBs2KKIkTPGz0N9DRWdGWkKg/exec";
     private View overlayNegro;
     private Button btnSalir, btnOscurecer;
+    private boolean isPaused = false;
 
-    private String casetaAsignada = "Sin Ruta";
-    private static final Set<String> codigosRegistrados = new HashSet<>();
-
-    private final BarcodeCallback callback = new BarcodeCallback() {
-        @Override
-        public void barcodeResult(BarcodeResult result) {
-            String contenido = result.getText();
-            if (contenido == null || peticionEnCurso) return;
-
-            String codigoLimpio = contenido.trim();
-            if (codigosRegistrados.contains(codigoLimpio)) {
-                Toast.makeText(getApplicationContext(), "🛑 QR Duplicado", Toast.LENGTH_SHORT).show();
-                emitirSonido(ToneGenerator.TONE_SUP_CONGESTION, 250);
-                return;
-            }
-
-            codigosRegistrados.add(codigoLimpio);
-            peticionEnCurso = true;
-            barcodeView.pause();
-            enviarANube(codigoLimpio);
+    private DecoratedBarcodeView barcodeScanner;
+    private final ActivityResultLauncher<ScanOptions> barcodeLauncher = registerForActivityResult(new ScanContract(), result -> {
+        if (result.getContents() != null) {
+            manejarEscaneo(result.getContents());
         }
-    };
+    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 100);
+        }
 
         overlayNegro = findViewById(R.id.overlayNegro);
         btnSalir = findViewById(R.id.btnSalir);
         btnOscurecer = findViewById(R.id.btnOscurecer);
 
         btnSalir.setOnClickListener(v -> {
-            new GestorSesionPU(this).cerrarSesion();
             startActivity(new Intent(this, LoginActivity.class));
             finish();
+
+        });
+        barcodeScanner = findViewById(R.id.barcodeScanner);
+
+        // Configuración para que el escáner se quede siempre encendido
+        barcodeScanner.decodeContinuous(result -> {
+            if (result.getText() != null) {
+                manejarEscaneo(result.getText());
+            }
+        });
+        btnOscurecer.setOnClickListener(v -> {
+            if (overlayNegro.getVisibility() == View.GONE) {
+                overlayNegro.setVisibility(View.VISIBLE);
+            } else {
+                overlayNegro.setVisibility(View.GONE);
+            }
         });
 
-        btnOscurecer.setOnClickListener(v -> overlayNegro.setVisibility(View.VISIBLE));
+
         overlayNegro.setOnClickListener(v -> overlayNegro.setVisibility(View.GONE));
-
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-        if (getIntent().hasExtra("RUTA_ASIGNADA")) {
-            casetaAsignada = getIntent().getStringExtra("RUTA_ASIGNADA");
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 100);
-            }
-        }
-
-        barcodeView = findViewById(R.id.zxing_barcode_scanner);
-        barcodeView.setStatusText("");
-        barcodeView.decodeContinuous(callback);
+    }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        barcodeScanner.resume();
     }
 
-    private void enviarANube(final String data) {
+    @Override
+    protected void onPause() {
+        super.onPause();
+        barcodeScanner.pause();
+    }
+
+    private void manejarEscaneo(String contenido) {
+        if (SistemaQr.validarEscaneo(contenido)) {
+            isPaused = true;
+            String[] partes = contenido.split("\\|");
+
+
+            Registro reg = new Registro();
+            reg.Chofer = partes[0];
+            reg.numCamioneta = partes[1];
+            reg.fecha = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()).format(new java.util.Date());
+            reg.hora = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date());
+            reg.sincronizado = 0;
+
+            new Thread(() -> {
+                MyApplication.db.registroDao().insert(reg);
+
+
+                intentarSincronizar();
+            }).start();
+            emitirSonidoFuerte(ToneGenerator.TONE_DTMF_S, 300);
+            vibrar(new long[]{0, 150});
+
+            new Handler(Looper.getMainLooper()).postDelayed(() -> isPaused = false, 1500);
+        }
+    }
+
+    private void emitirSonidoFuerte(int t, int d) {
         try {
-            String[] p = data.split("\\|");
-            if (p.length < 8) {
-                reestablecerEscaner("⚠️ QR incompleto", ToneGenerator.TONE_SUP_ERROR, null);
-                return;
-            }
-
-            String encodedData = URLEncoder.encode(data, "UTF-8");
-            String url = URL_WEB_APP + "?accion=registrar&datos=" + encodedData;
-
-            RequestQueue queue = Volley.newRequestQueue(this);
-            StringRequest request = new StringRequest(Request.Method.GET, url,
-                    response -> {
-                        emitirSonidoFuerte(ToneGenerator.TONE_DTMF_S, 300);
-                        vibrar(new long[]{0, 150});
-                        Toast.makeText(getApplicationContext(), "✅ Registrado en Escaner", Toast.LENGTH_SHORT).show();
-                        new Handler().postDelayed(() -> reestablecerEscaner(null, -1, null), 1500);
-                    },
-                    error -> reestablecerEscaner("❌ Error de red", ToneGenerator.TONE_CDMA_HIGH_L, new long[]{0, 500})
-            );
-            queue.add(request);
+            ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
+            tg.startTone(t, d);
         } catch (Exception e) {
-            reestablecerEscaner("Error: " + e.getMessage(), ToneGenerator.TONE_SUP_ERROR, null);
+            e.printStackTrace();
         }
     }
 
-    private void reestablecerEscaner(String m, int t, long[] p) {
-        if (m != null) Toast.makeText(getApplicationContext(), m, Toast.LENGTH_SHORT).show();
-        if (t != -1) emitirSonido(t, 250);
-        if (p != null) vibrar(p);
-        peticionEnCurso = false;
-        barcodeView.resume();
+    private void vibrar(long[] p) {
+        try {
+            Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+            if (v != null) v.vibrate(p, -1);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    private void emitirSonido(int t, int d) { try { ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 70); tg.startTone(t, d); } catch (Exception e) { e.printStackTrace(); } }
-    private void emitirSonidoFuerte(int t, int d) { try { ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_ALARM, 100); tg.startTone(t, d); } catch (Exception e) { e.printStackTrace(); } }
-    private void vibrar(long[] p) { try { Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE); if (v != null) v.vibrate(p, -1); } catch (Exception e) { e.printStackTrace(); } }
+    private void intentarSincronizar() {
+        new Thread(() -> {
+            List<Registro> pendientes = MyApplication.db.registroDao().getNoSincronizados();
+            for (Registro reg : pendientes) {
 
-    @Override
-    protected void onResume() { super.onResume(); barcodeView.resume(); }
-    @Override
-    protected void onPause() { super.onPause(); barcodeView.pause(); }
+
+                String url = URL_WEB_APP + "?accion=registrar&chofer=" + reg.Chofer + "&unidad=" + reg.numCamioneta;
+                Log.d("SYNC_DEBUG", "Enviando a: " + url);
+
+                StringRequest request = new StringRequest(Request.Method.GET, url,
+                        response -> {
+                            Log.d("SYNC_DEBUG", "Respuesta del servidor: " + response);
+                            if (response.contains("OK")) {
+                                reg.sincronizado = 1;
+                                new Thread(() -> MyApplication.db.registroDao().update(reg)).start();
+                            }
+                        }, error -> {
+                    Log.e("SYNC_DEBUG", "Error de red: " + error.getMessage());
+                });
+                Volley.newRequestQueue(this).add(request);
+            }
+        }).start();
+    }
 }

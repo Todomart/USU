@@ -9,7 +9,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.zxing.BarcodeFormat;
-import com.journeyapps.barcodescanner.BarcodeEncoder;
+
 
 public class MainActivity extends AppCompatActivity {
     private GestorSesionPU gestor;
@@ -55,21 +55,23 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    // Sustituye tu método generarQr actual por este:
     private void generarQr() {
         try {
             String nombre = gestor.getNombre();
             String unidad = gestor.getUnidad();
             if (nombre == null || unidad == null) return;
 
-            String data = nombre + "|" + unidad + "|" + System.currentTimeMillis();
-            BarcodeEncoder encoder = new BarcodeEncoder();
-            Bitmap bitmap = encoder.encodeBitmap(data, BarcodeFormat.QR_CODE, 500, 500);
+            // Instanciamos SistemaQr para usar el generador correcto
+            SistemaQr generador = new SistemaQr();
+            Bitmap bitmap = generador.generarTicketTemporal(nombre, unidad);
 
-            imgQR.setImageDrawable(null);
-            imgQR.setImageBitmap(bitmap);
-
-            btnGenerar.setEnabled(false);
-            segundosRestantes = 120;
+            if (bitmap != null) {
+                imgQR.setImageBitmap(bitmap);
+                btnGenerar.setEnabled(false);
+                segundosRestantes = 120;
+                iniciarTemporizador();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -86,11 +88,12 @@ public class MainActivity extends AppCompatActivity {
                     tvTimer.setVisibility(android.view.View.VISIBLE);
                     tvTimer.setText("Espera " + segundosRestantes + "s para otro QR");
                     handler.postDelayed(this, 1000);
-                } else {
-                    tvTimer.setVisibility(android.view.View.INVISIBLE);
-                    btnGenerar.setEnabled(true);
-                    btnGenerar.setText("GENERAR NUEVO QR");
-                }
+                }  else {
+                tvTimer.setVisibility(android.view.View.INVISIBLE);
+                imgQR.setImageDrawable(null);
+                btnGenerar.setEnabled(true);
+                btnGenerar.setText("GENERAR NUEVO QR");
+            }
             }
         };
         handler.post(runnable);

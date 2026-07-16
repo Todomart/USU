@@ -1,5 +1,6 @@
 package com.example.controllogistica;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
@@ -35,6 +36,8 @@ public class PantallaRegistro extends AppCompatActivity {
             } else {
                 // Solo enviamos 4 parámetros
                 gestor.guardarRegistroChofer(usu, con, nom, uni);
+                SharedPreferences prefs = getSharedPreferences("SesionChofer", MODE_PRIVATE);
+                prefs.edit().putBoolean("isLoggedIn", true).apply();
                 Toast.makeText(this, "¡Registrado!", Toast.LENGTH_SHORT).show();
                 finish();
             }

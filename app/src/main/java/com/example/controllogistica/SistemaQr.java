@@ -1,74 +1,101 @@
 package com.example.controllogistica;
 
 import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.util.Log;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
-import com.journeyapps.barcodescanner.BarcodeEncoder;
 import java.util.HashSet;
 
 public class SistemaQr {
 
-    // Lista estática para que persista durante la ejecución de la App
     private static HashSet<String> codigosQuemados = new HashSet<>();
+    private static final String TAG = "SistemaQrDebug";
 
-    /**
-     *  este es el método que genera el QR con 3 parámetros.
-     * Si en el MainActivity sale rojo, es porque aquí faltaba alguno.
-     */
-    public Bitmap generarTicketTemporal(String nombre, String unidad, String ruta) {
-        // 1. Sello de tiempo (Timestamp) para la validez de 2 minutos
-        long tiempoActual = System.currentTimeMillis();
-
-        // 2. Estructura del contenido: "Nombre|Unidad|Ruta|Tiempo"
-        String contenido = nombre + "|" + unidad + "|" + ruta + "|" + tiempoActual;
-
-        // 3. Generación física del QR
+    public Bitmap generarTicketTemporal(String nombre, String unidad) {
+        // Solo nombre y unidad
+        String contenido = nombre + "|" + unidad;
         MultiFormatWriter writer = new MultiFormatWriter();
         try {
             BitMatrix matrix = writer.encode(contenido, BarcodeFormat.QR_CODE, 400, 400);
-            BarcodeEncoder encoder = new BarcodeEncoder();
-            return encoder.createBitmap(matrix);
+            int width = matrix.getWidth();
+            int height = matrix.getHeight();
+            Bitmap bmp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+            for (int x = 0; x < width; x++) {
+                for (int y = 0; y < height; y++) {
+                    bmp.setPixel(x, y, matrix.get(x, y) ? Color.BLACK : Color.WHITE);
+                }
+            }
+            return bmp;
         } catch (WriterException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error generando QR", e);
             return null;
         }
     }
-
-    /**
-     * Valida si el código escaneado es auténtico y no ha expirado.
-     */
-    public boolean validarEscaneo(String contenidoQr) {
+    public static boolean validarEscaneo(String contenidoQr) {
         try {
-            String[] partes = contenidoQr.split("\\|");
-            if (partes.length < 4) return false;
+            String contenidoLimpio = contenidoQr.trim();
+            String[] partes = contenidoLimpio.split("\\|");
 
-            long timestampQr = Long.parseLong(partes[3]);
-            long tiempoActual = System.currentTimeMillis();
+            Log.d(TAG, "Contenido recibido: " + contenidoLimpio);
 
-            // Verificación de los 2 minutos (120,000 ms)
-            if (tiempoActual - timestampQr > 120000) {
-                return false; // Expirado
+
+            if (partes.length < 2) {
+                return false;
             }
 
-            // Verificación de duplicados
-            if (codigosQuemados.contains(contenidoQr)) {
-                return false; // Ya se usó
+            String chofer = partes[0].trim();
+            String unidad = partes[1].trim();
+
+
+            if (chofer.equalsIgnoreCase("Sin Nombre") || unidad.equalsIgnoreCase("S/N") ||
+                    chofer.isEmpty() || unidad.isEmpty()) {
+                Log.e(TAG, "Dato RECHAZADO por contener valores genéricos o vacíos");
+                return false;
             }
 
-            codigosQuemados.add(contenidoQr);
+
+            if (codigosQuemados.contains(contenidoLimpio)) {
+                Log.w(TAG, "QR ya fue utilizado");
+                return false;
+            }
+
+            codigosQuemados.add(contenidoLimpio);
             return true;
-
         } catch (Exception e) {
+            Log.e(TAG, "Error en validación", e);
             return false;
         }
     }
+//    public static boolean validarEscaneo(String contenidoQr) {
+//        try {
+//            String[] partes = contenidoQr.trim().split("\\|");
+//            Log.d(TAG, "Contenido recibido: " + contenidoQr);
+//
+//            // Verificamos que al menos tenga Chofer y Unidad
+//            if (partes.length < 2) {
+//                Log.w(TAG, "Formato incorrecto. Partes: " + partes.length);
+//                return false;
+//            }
+//
+//            // Ya no validamos timestamp aquí.
+//            // La validez es que el QR no se haya usado antes.
+//            if (codigosQuemados.contains(contenidoQr)) {
+//                Log.w(TAG, "QR ya fue utilizado");
+//                return false;
+//            }
+//
+//            codigosQuemados.add(contenidoQr);
+//            return true;
+//        } catch (Exception e) {
+//            Log.e(TAG, "Error en validación", e);
+//            return false;
+//        }
+//    }
 
-    /**
-     * Limpia la memoria de códigos (Útil para el reinicio mensual)
-     */
-    public void reiniciarProduccion() {
+    public static void limpiarCodigos() {
         codigosQuemados.clear();
     }
 }
