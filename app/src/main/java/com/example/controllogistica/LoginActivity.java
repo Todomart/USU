@@ -52,33 +52,72 @@ public class LoginActivity extends AppCompatActivity {
             if (res.equals("LOGIN_ADMIN")) {
                 gestor.guardarSesion(u, p, "ADMIN");
                 irA(AdminActivity.class);
-            } else if (res.equals("LOGIN_CHOFER")) {
-                gestor.guardarSesion(u, p, "CHOFER");
-                String [] datos = response.split("\\|");
+            } else if (res.contains("LOGIN_CHOFER")) {
+                // Dividimos la respuesta: "LOGIN_CHOFER|NombreReal|Unidad"
+                String[] datos = response.split("\\|");
                 if(datos.length >= 3) {
                     String nombreReal = datos[1];
                     String unidad = datos[2];
-                    SharedPreferences prefs  = getSharedPreferences("SesionChofer", MODE_PRIVATE);
-                    prefs.edit().putString("nombre", nombreReal).putString("unidad" ,unidad).putBoolean("logueado", true).apply();
+
+                    //Usamos gestor para persistir datos unificados
+                    gestor.guardarRegistroChofer(u, p, nombreReal, unidad);
+                    gestor.guardarSesion(u, p, "CHOFER");
+
+                    irA(MainActivity.class);
+                } else {
+                    Toast.makeText(this, "Error en formato de datos del servidor", Toast.LENGTH_SHORT).show();
                 }
-                irA(MainActivity.class);
             } else {
                 Toast.makeText(this, "Credenciales incorrectas", Toast.LENGTH_SHORT).show();
             }
-
         }, error -> {
-            // Respaldo solo para CHÓFERES
+            // Modo Offline
             if (gestor.validarLogin(u, p) && "CHOFER".equals(gestor.getRol())) {
-                Toast.makeText(this, "Modo Offline: Sesión de chofer recuperada", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Modo Offline: Sesión recuperada", Toast.LENGTH_SHORT).show();
                 irA(MainActivity.class);
             } else {
-                // Si es ADMIN, no entra en modo offline. Si es otro caso, error.
                 Toast.makeText(this, "Sin conexión. El escáner requiere internet.", Toast.LENGTH_LONG).show();
             }
         });
         queue.add(request);
-
     }
+
+//    private void validarEnNube(String u, String p) {
+//        String urlLogin = URL + "?accion=loginAdmin&usuarioAdmin=" + u + "&contrasenaAdmin=" + p;
+//        RequestQueue queue = Volley.newRequestQueue(this);
+//
+//        StringRequest request = new StringRequest(Request.Method.GET, urlLogin, response -> {
+//            String res = (response != null) ? response.trim() : "";
+//            if (res.equals("LOGIN_ADMIN")) {
+//                gestor.guardarSesion(u, p, "ADMIN");
+//                irA(AdminActivity.class);
+//            } else if (res.equals("LOGIN_CHOFER")) {
+//                gestor.guardarSesion(u, p, "CHOFER");
+//                String [] datos = response.split("\\|");
+//                if(datos.length >= 3) {
+//                    String nombreReal = datos[1];
+//                    String unidad = datos[2];
+//                    SharedPreferences prefs  = getSharedPreferences("SesionChofer", MODE_PRIVATE);
+//                    prefs.edit().putString("nombre", nombreReal).putString("unidad" ,unidad).putBoolean("logueado", true).apply();
+//                }
+//                irA(MainActivity.class);
+//            } else {
+//                Toast.makeText(this, "Credenciales incorrectas", Toast.LENGTH_SHORT).show();
+//            }
+//
+//        }, error -> {
+//            // Respaldo solo para CHÓFERES
+//            if (gestor.validarLogin(u, p) && "CHOFER".equals(gestor.getRol())) {
+//                Toast.makeText(this, "Modo Offline: Sesión de chofer recuperada", Toast.LENGTH_SHORT).show();
+//                irA(MainActivity.class);
+//            } else {
+//                // Si es ADMIN, no entra en modo offline. Si es otro caso, error.
+//                Toast.makeText(this, "Sin conexión. El escáner requiere internet.", Toast.LENGTH_LONG).show();
+//            }
+//        });
+//        queue.add(request);
+//
+//    }
 
     private void irA(Class<?> activityClass) {
         Intent intent = new Intent(this, activityClass);

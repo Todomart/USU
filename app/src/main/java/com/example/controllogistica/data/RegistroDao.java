@@ -1,6 +1,7 @@
 package com.example.controllogistica.data;
 
 import androidx.room.Dao;
+import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.Query;
 import androidx.room.Update;
@@ -21,6 +22,8 @@ public interface RegistroDao {
 
     @Update
     void update(Registro registro);
+    @Delete
+    void delete(Registro registro);
     @Query("SELECT * FROM Registro WHERE sincronizado = 0")
     List<Registro> getNoSincronizados();
 }

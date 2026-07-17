@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.android.volley.Request;
+import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.example.controllogistica.data.Registro;
@@ -135,25 +136,25 @@ public class AdminActivity extends AppCompatActivity {
     }
 
     private void intentarSincronizar() {
+
+        RequestQueue queue = Volley.newRequestQueue(this);
+
         new Thread(() -> {
             List<Registro> pendientes = MyApplication.db.registroDao().getNoSincronizados();
             for (Registro reg : pendientes) {
-
-
                 String url = URL_WEB_APP + "?accion=registrar&chofer=" + reg.Chofer + "&unidad=" + reg.numCamioneta;
-                Log.d("SYNC_DEBUG", "Enviando a: " + url);
 
                 StringRequest request = new StringRequest(Request.Method.GET, url,
                         response -> {
-                            Log.d("SYNC_DEBUG", "Respuesta del servidor: " + response);
-                            if (response.contains("OK")) {
-                                reg.sincronizado = 1;
-                                new Thread(() -> MyApplication.db.registroDao().update(reg)).start();
+                            if (response != null && response.contains("SUCCESS")) {
+                                new Thread(() -> {
+                                    MyApplication.db.registroDao().delete(reg);
+                                }).start();
                             }
                         }, error -> {
-                    Log.e("SYNC_DEBUG", "Error de red: " + error.getMessage());
+                    Log.e("SYNC_DEBUG", "Error: " + error.getMessage());
                 });
-                Volley.newRequestQueue(this).add(request);
+                queue.add(request); // Usamos la misma cola para todos
             }
         }).start();
     }
