@@ -57,43 +57,14 @@ public class SistemaQr {
             }
 
 
-            if (codigosQuemados.contains(contenidoLimpio)) {
-                Log.w(TAG, "QR ya fue utilizado");
-                return false;
-            }
 
-            codigosQuemados.add(contenidoLimpio);
             return true;
         } catch (Exception e) {
             Log.e(TAG, "Error en validación", e);
             return false;
         }
     }
-//    public static boolean validarEscaneo(String contenidoQr) {
-//        try {
-//            String[] partes = contenidoQr.trim().split("\\|");
-//            Log.d(TAG, "Contenido recibido: " + contenidoQr);
-//
-//            // Verificamos que al menos tenga Chofer y Unidad
-//            if (partes.length < 2) {
-//                Log.w(TAG, "Formato incorrecto. Partes: " + partes.length);
-//                return false;
-//            }
-//
-//            // Ya no validamos timestamp aquí.
-//            // La validez es que el QR no se haya usado antes.
-//            if (codigosQuemados.contains(contenidoQr)) {
-//                Log.w(TAG, "QR ya fue utilizado");
-//                return false;
-//            }
-//
-//            codigosQuemados.add(contenidoQr);
-//            return true;
-//        } catch (Exception e) {
-//            Log.e(TAG, "Error en validación", e);
-//            return false;
-//        }
-//    }
+
 
     public static void limpiarCodigos() {
         codigosQuemados.clear();
